@@ -1,4 +1,4 @@
-import AnimeGANv3.oldpatch as oldpatch
+import tools.patch
 import tensorflow.compat.v1 as tf
 import tf_slim as slim
 
