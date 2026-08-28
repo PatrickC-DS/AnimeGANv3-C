@@ -1,4 +1,4 @@
-import os
+import os, time
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["TF_XLA_FLAGS"] = "--tf_xla_enable_xla_devices=false"
@@ -9,10 +9,9 @@ import tensorflow.compat.v1 as tf
 
 from AnimeGANv3_hayao import AnimeGANv3 as AnimeGANv3_Hayao
 from AnimeGANv3_shinkai import AnimeGANv3 as AnimeGANv3_Shinkai
-from AnimeGANv3.AnimeGANv3_custom import AnimeGANv3 as AnimeGANv3_Marini
+from AnimeGANv3.AnimeGANv3_custom import AnimeGANv3 as AnimeGANv3_Custom
 import argparse
 from tools.utils import *
-import os, time
 
 
 
@@ -87,10 +86,8 @@ def train():
         AnimeGANv3 = AnimeGANv3_Hayao
     elif args.style_dataset == "Shinkai" :
         AnimeGANv3 = AnimeGANv3_Shinkai
-    elif args.style_dataset == "Marini" :
-        AnimeGANv3 = AnimeGANv3_Marini
     else :
-        AnimeGANv3 = AnimeGANv3_Marini
+        AnimeGANv3 = AnimeGANv3_Custom
     # open session
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True,inter_op_parallelism_threads=8,
     #                           intra_op_parallelism_threads=8,gpu_options=gpu_options)) as sess:
