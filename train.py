@@ -1,17 +1,21 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_enable_xla_devices=false"
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 import tools.patch        # Reçoit le patch magique qui intercepte tensorflow.contrib !
 import tensorflow.compat.v1 as tf
 
 from AnimeGANv3_hayao import AnimeGANv3 as AnimeGANv3_Hayao
 from AnimeGANv3_shinkai import AnimeGANv3 as AnimeGANv3_Shinkai
-from AnimeGANv3_marini import AnimeGANv3 as AnimeGANv3_Marini
+from AnimeGANv3.AnimeGANv3_custom import AnimeGANv3 as AnimeGANv3_Marini
 import argparse
 from tools.utils import *
 import os, time
 
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 """parsing and configuration"""
 def parse_args():

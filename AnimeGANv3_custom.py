@@ -18,6 +18,54 @@ from tools.L0_smoothing import L0Smoothing
 import onnx
 from onnx import numpy_helper
 
+import os
+import json
+
+def is_kaggle():
+    return 'KAGGLE_KERNEL_RUN_TYPE' in os.environ
+
+def save_kaggle_checkpoint(style) :
+    from kaggle_secrets import UserSecretsClient
+    user_secrets = UserSecretsClient()
+    secret_value = user_secrets.get_secret("checkpoint token")
+    
+    # Configuration des identifiants Kaggle
+    os.environ['KAGGLE_USERNAME'] = "patrick2colin"
+    os.environ['KAGGLE_KEY'] = secret_value
+    
+    from kaggle.api.kaggle_api_extended import KaggleApi
+    api = KaggleApi()
+    api.authenticate()
+    
+    FOLDER_PATH = f"/kaggle/working/AnimeGANv3-C/checkpoint/AnimeGANv3_{style}"
+    
+    epoch = 12
+    
+    # Génération des métadonnées requises par Kaggle
+    DATASET_SLUG = f"animeganv3-{style}-checkpoint"  # Nom du dataset sur Kaggle (minuscules et tirets)
+    metadata = {
+        "title": f"AnimeGANv3-{style}-checkpoint epoch {epoch}",
+        "id": f"{os.environ['KAGGLE_USERNAME']}/{DATASET_SLUG}",
+        "licenses": [{"name": "CC0-1.0"}]
+    }
+    
+    with open(os.path.join(FOLDER_PATH, "dataset-metadata.json"), "w") as f:
+        json.dump(metadata, f)
+    
+    # Envoi automatique du fichier vers un nouveau Dataset Kaggle
+    try:
+        response = api.dataset_create_version(FOLDER_PATH, version_notes= f"epoch {epoch}", dir_mode="zip")
+        print(response)
+        print(f"Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
+    except Exception as e:
+        # Si le dataset existe déjà, on en crée une nouvelle version
+        api.dataset_create_version(
+            FOLDER_PATH, 
+            version_notes="Mise à jour du fichier", 
+            dir_mode="zip"
+        )
+        print(f"Nouvelle version du Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
+
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
         self.model_name = 'AnimeGANv3'
@@ -322,6 +370,9 @@ class AnimeGANv3(object) :
 
             if (epoch + 1) >= self.init_G_epoch and np.mod(epoch + 1, self.save_freq) == 0:
                 self.save(self.checkpoint_dir, epoch)
+                if is_kaggle() :
+                    save_kaggle_checkpoint(self.dataset_name)
+
 
             """
             if (epoch + 1) >= self.init_G_epoch:
