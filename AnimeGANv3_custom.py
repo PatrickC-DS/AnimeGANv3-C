@@ -79,10 +79,10 @@ class AnimeGANv3(object) :
         print("# init_G_lr,g_lr,d_lr : ", self.init_G_lr,self.g_lr,self.d_lr)
         print()
 
-    def is_kaggle():
+    def is_kaggle(self):
         return 'KAGGLE_KERNEL_RUN_TYPE' in os.environ
 
-    def save_kaggle_checkpoint(style) :
+    def save_kaggle_checkpoint(self, style) :
         from kaggle_secrets import UserSecretsClient
         user_secrets = UserSecretsClient()
         secret_value = user_secrets.get_secret("checkpoint token")
