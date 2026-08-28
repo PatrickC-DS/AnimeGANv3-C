@@ -9,7 +9,7 @@ import tensorflow.compat.v1 as tf
 
 from AnimeGANv3_hayao import AnimeGANv3 as AnimeGANv3_Hayao
 from AnimeGANv3_shinkai import AnimeGANv3 as AnimeGANv3_Shinkai
-from AnimeGANv3.AnimeGANv3_custom import AnimeGANv3 as AnimeGANv3_Custom
+from AnimeGANv3_custom import AnimeGANv3 as AnimeGANv3_Custom
 import argparse
 from tools.utils import *
 
