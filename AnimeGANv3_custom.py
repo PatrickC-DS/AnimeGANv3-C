@@ -82,7 +82,7 @@ class AnimeGANv3(object) :
     def is_kaggle(self):
         return 'KAGGLE_KERNEL_RUN_TYPE' in os.environ
 
-    def save_kaggle_checkpoint(self, style) :
+    def save_kaggle_checkpoint(self, style, epoch) :
         from kaggle_secrets import UserSecretsClient
         user_secrets = UserSecretsClient()
         secret_value = user_secrets.get_secret("checkpoint token")
@@ -112,7 +112,7 @@ class AnimeGANv3(object) :
         
         # Envoi automatique du fichier vers un nouveau Dataset Kaggle
         try:
-            response = api.dataset_create_version(FOLDER_PATH, version_notes= f"epoch {epoch}", dir_mode="zip")
+            response = api.dataset_create_new(FOLDER_PATH, version_notes = f"epoch {epoch}", dir_mode="zip")
             print(response)
             print(f"Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
         except Exception as e:
