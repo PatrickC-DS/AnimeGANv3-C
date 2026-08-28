@@ -102,7 +102,7 @@ class AnimeGANv3(object) :
         # Génération des métadonnées requises par Kaggle
         DATASET_SLUG = f"animeganv3-{style}-checkpoint"  # Nom du dataset sur Kaggle (minuscules et tirets)
         metadata = {
-            "title": f"AnimeGANv3-{style}-checkpoint epoch {epoch}",
+            "title": f"AnimeGANv3-{style}-checkpoint",
             "id": f"{os.environ['KAGGLE_USERNAME']}/{DATASET_SLUG}",
             "licenses": [{"name": "CC0-1.0"}]
         }
@@ -112,17 +112,15 @@ class AnimeGANv3(object) :
         
         # Envoi automatique du fichier vers un nouveau Dataset Kaggle
         try:
-            response = api.dataset_create_new(FOLDER_PATH, version_notes = f"epoch {epoch}", dir_mode="zip")
+            # Si le dataset existe déjà, on en crée une nouvelle version
+            response = api.dataset_create_version(FOLDER_PATH, version_notes = f"epoch {epoch}", dir_mode="zip")
+            print(response)
+            print(f"Nouvelle version du Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
+        except Exception as e:
+            # Creation si echec de update    
+            response = api.dataset_create_new(FOLDER_PATH, dir_mode="zip")
             print(response)
             print(f"Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
-        except Exception as e:
-            # Si le dataset existe déjà, on en crée une nouvelle version
-            api.dataset_create_version(
-                FOLDER_PATH, 
-                version_notes="Mise à jour du fichier", 
-                dir_mode="zip"
-            )
-            print(f"Nouvelle version du Dataset checkpoint {style} epoch {epoch} créé avec succès sur Kaggle !")
 
 
     def generator(self, x_init, is_training, reuse=False, scope="generator"):
