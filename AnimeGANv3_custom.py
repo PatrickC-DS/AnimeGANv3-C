@@ -371,8 +371,8 @@ class AnimeGANv3(object) :
 
             if (epoch + 1) >= self.init_G_epoch and np.mod(epoch + 1, self.save_freq) == 0:
                 self.save(self.checkpoint_dir, epoch)
-                if is_kaggle() :
-                    save_kaggle_checkpoint(self.dataset_name)
+                if self.is_kaggle() :
+                    self.save_kaggle_checkpoint(self.dataset_name)
 
 
             """
