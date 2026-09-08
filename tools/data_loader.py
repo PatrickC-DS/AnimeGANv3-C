@@ -28,8 +28,8 @@ class ImageGenerator(object):
                 continue
             paths.append(path_full)
             i += 1
-            if i > 2000 :   # Fix pour réduire le dataset et donc le temps d'entrainement
-                return paths
+            #if i > 2000 :   # Fix pour réduire le dataset et donc le temps d'entrainement
+            #    return paths
         return paths
 
 

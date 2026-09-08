@@ -21,6 +21,9 @@ from onnx import numpy_helper
 import os
 import json
 
+WB = True # True # White enad Black Style
+
+
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
         self.model_name = 'AnimeGANv3'
@@ -212,23 +215,28 @@ class AnimeGANv3(object) :
         # gan
         """support"""
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
-        # self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 1., 9.])
-        self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
-        self.sty_loss = self.s22  + self.s33 +  self.s44
 
         self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                         + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
 
+        if WB :
+            self.color_loss = tf.constant(0.0) # 0.0
+            self.tv_loss  = 0.0001 * total_variation_loss(self.generated)
+            self.tv_loss_m = 0.0001 * total_variation_loss(self.generated_m)
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray, [0.1, 10.0, 50.0])
+        else :
+            self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
+            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
 
-        self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
-        self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+        self.sty_loss = self.s22  + self.s33 +  self.s44
 
         self.g_adv_loss = generator_loss(fake_gray_logit)
         self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
         self.D_support_loss = discriminator_loss(anime_gray_logit, fake_gray_logit) \
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
         """main"""
-        self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
         self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
