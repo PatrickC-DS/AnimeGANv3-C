@@ -398,6 +398,12 @@ class AnimeGANv3(object) :
             """
             print("End epoch", epoch)
 
+        # Sauvegarde dernière epoch
+        self.save(self.checkpoint_dir, epoch)
+        if self.is_kaggle() :
+            self.save_kaggle_checkpoint(self.dataset_name, epoch)
+
+
     @property
     def model_dir(self):
         return "{}_{}".format(self.model_name, self.dataset_name)
