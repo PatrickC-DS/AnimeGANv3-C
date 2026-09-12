@@ -81,13 +81,14 @@ def train():
       exit()
     if len(args.img_size) == 1:
         args.img_size = [args.img_size, args.img_size]
-
+    """
     if args.style_dataset == "Hayao" :
         AnimeGANv3 = AnimeGANv3_Hayao
     elif args.style_dataset == "Shinkai" :
         AnimeGANv3 = AnimeGANv3_Shinkai
     else :
-        AnimeGANv3 = AnimeGANv3_Custom
+    """
+    AnimeGANv3 = AnimeGANv3_Custom
     # open session
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True,inter_op_parallelism_threads=8,
     #                           intra_op_parallelism_threads=8,gpu_options=gpu_options)) as sess:

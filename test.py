@@ -3,8 +3,10 @@ import os,cv2
 from tqdm import tqdm
 from glob import glob
 import time
+import tools.patch        # Reçoit le patch magique qui intercepte tensorflow.contrib !
 import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+import tf_slim as slim
+
 import numpy as np
 from net import generator
 from tools.GuidedFilter import guided_filter
@@ -57,8 +59,59 @@ def parse_args():
     parser.add_argument('--save_dir', type=str, default='style_results/',help='Directory name of results')
     return parser.parse_args()
 
+import onnx
+from onnx import numpy_helper
 
-def test(checkpoint_dir, save_dir, test_dir,):
+def load_weights_onnx(filename_onnx) :
+    # -------------------------------------------------------------------------
+    # Charger les poids depuis le fichier ONNX
+    # -------------------------------------------------------------------------
+    onnx_model = onnx.load(filename_onnx)
+    onnx_weights = {}
+
+    for initializer in onnx_model.graph.initializer:
+        weight = numpy_helper.to_array(initializer)
+        # Transposition NCHW (ONNX) -> NHWC (TensorFlow) pour les convolutions (4D)
+        if weight.ndim == 4:
+            weight = np.transpose(weight, (2, 3, 1, 0))
+        onnx_weights[initializer.name] = weight
+
+    return onnx_weights
+
+def replace_weights_generator(sess, filename_onnx) :
+    # -------------------------------------------------------------------------
+    # ÉCRASER uniquement les poids du Générateur avec ceux de l'ONNX
+    # -------------------------------------------------------------------------
+    onnx_weights = load_weights_onnx(filename_onnx)
+
+    # Récupérer uniquement les variables du Générateur
+    gen_vars = [
+        v
+        for v in tf.compat.v1.trainable_variables()
+        if "generator" in v.name.lower()
+    ]
+
+    replaced_count = 0
+    for var in gen_vars:
+        var_name_clean = var.name.split(":")[0]
+
+        # Chercher la correspondance dans les poids ONNX
+        for onnx_name, weight_data in onnx_weights.items():
+            if onnx_name in var_name_clean or var_name_clean in onnx_name:
+                try:
+                    # Écriture directe dans la variable en session
+                    sess.run(var.assign(weight_data))
+                    replaced_count += 1
+                    break
+                except Exception as e:
+                    print(f"Erreur pour {var.name} : {e}")
+
+    print(
+        f"Succès : {replaced_count} variables du Générateur ont été remplacées par l'ONNX !"
+    )        
+
+
+def test(checkpoint_dir, save_dir, test_dir, onnx=""):
     # tf.reset_default_graph()
     result_dir = check_folder(save_dir)
     test_files = glob('{}/*.*'.format(test_dir))
@@ -82,23 +135,29 @@ def test(checkpoint_dir, save_dir, test_dir,):
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)  # first line
             saver.restore(sess, os.path.join(checkpoint_dir, ckpt_name))
-            print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
         else:
             print(" [*] Failed to find a checkpoint")
             return
+        if onnx == "" :
+            print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
+        else :
+            replace_weights_generator(sess, onnx)
+            print(" [*] Success to replace weights with", onnx)     
 
         imgs = []
         for x in test_files:
+            print("Add ", x)
             imgs.append(load_test_data(x))
 
         begin = time.time()
         for i, sample_file  in tqdm(list(enumerate(test_files))):
             sample_image,scale = np.asarray(imgs[i][0]),imgs[i][1]
             real, s1, s0, m = sess.run([test_real, test_s1, test_s0, test_m], feed_dict = {test_real : sample_image})
-            save_images(real, result_dir + '/a_{0}'.format(os.path.basename(sample_file)),scale)
-            save_images(s1, result_dir + '/b_{0}'.format(os.path.basename(sample_file)),scale)
-            save_images(s0, result_dir + '/c_{0}'.format(os.path.basename(sample_file)),scale)
-            save_images(m, result_dir + '/d_{0}'.format(os.path.basename(sample_file)),scale)
+            #save_images(real, result_dir + '/a_{0}'.format(os.path.basename(sample_file)),scale)
+            #save_images(s1, result_dir + '/b_{0}'.format(os.path.basename(sample_file)),scale)
+            #save_images(s0, result_dir + '/c_{0}'.format(os.path.basename(sample_file)),scale)
+            #save_images(m, result_dir + '/d_{0}'.format(os.path.basename(sample_file)),scale)
+            save_images(m, result_dir + '/{0}'.format(os.path.basename(sample_file)), scale)
         end = time.time()
         print(f'test-time: {end-begin} s')
         print(f'one image test time : {(end-begin)/(len(test_files))} s')
@@ -107,4 +166,10 @@ def test(checkpoint_dir, save_dir, test_dir,):
 if __name__ == '__main__':
     arg = parse_args()
     print(arg.checkpoint_dir)
-    test(arg.checkpoint_dir, arg.save_dir, arg.test_dir)
+    test(arg.checkpoint_dir, arg.save_dir, arg.test_dir, onnx="Weights/AnimeGANv3_Hayao_36.onnx")
+    #test(arg.checkpoint_dir, arg.save_dir, arg.test_dir, onnx="Weights/AnimeGANv3_PortraitSketch_25.onnx")
+    #test(arg.checkpoint_dir, arg.save_dir, arg.test_dir, onnx="Weights/AnimeGANv3_Shinkai_37.onnx")
+    #test(arg.checkpoint_dir, arg.save_dir, arg.test_dir, onnx="checkpoint/AnimeGANv3_Meyer/model_animeganv3_meyer_64.onnx")
+    #test(arg.checkpoint_dir, arg.save_dir, arg.test_dir, onnx="checkpoint/AnimeGANv3_Meyer/model_animeganv3_meyer_99.onnx")
+    #test(arg.checkpoint_dir, arg.save_dir, arg.test_dir)
+

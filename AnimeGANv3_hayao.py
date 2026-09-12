@@ -216,7 +216,6 @@ class AnimeGANv3(object) :
 
                     """style transfer"""
                 else:
-
                     """ Update G """
                     # output fake image
                     inter_out_s, inter_out= self.sess.run([self.generated_s, self.generated], feed_dict=train_feed_dict)
@@ -230,7 +229,6 @@ class AnimeGANv3(object) :
                             self.fake_NLMean_l0: fake_NLMean_batch,
                         }
                     )
-
                     _, G_loss, G_support_loss, g_adv_loss, con_loss, rs_loss, sty_loss, s22, s33, s44, color_loss, tv_loss, \
                                G_main_loss, g_m_loss, p0_loss,p4_loss,tv_loss_m = self.sess.run([self.G_optim,
                                                                                                           self.Generator_loss,
@@ -324,7 +322,7 @@ class AnimeGANv3(object) :
         if not os.path.exists(checkpoint_dir):
  
             os.makedirs(checkpoint_dir)
-        self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '.model'), global_step=step)
+        self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '.model'), global_step=step, write_meta_graph=False)
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")

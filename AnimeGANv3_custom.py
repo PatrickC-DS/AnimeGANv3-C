@@ -149,6 +149,12 @@ class AnimeGANv3(object) :
                 weight = np.transpose(weight, (2, 3, 1, 0))
             onnx_weights[initializer.name] = weight
 
+        """
+        print("----------- ONNX --------------")
+        for onnx_name, weight_data in onnx_weights.items():
+            print(onnx_name)
+        print("----------- ONNX --------------") 
+        """
         return onnx_weights
 
     def replace_weights_generator(self, filename_onnx) :
@@ -165,23 +171,62 @@ class AnimeGANv3(object) :
         ]
 
         replaced_count = 0
+        unassigned_vars = []
+            
+        # PASS 1 : Match par nom exact ou permutation de préfixe (generator_1 <-> generator)
         for var in gen_vars:
-            var_name_clean = var.name.split(":")[0]
+            var_name = var.name.split(':')[0]
 
-            # Chercher la correspondance dans les poids ONNX
+            # Générer les clés candidates dans l'ONNX
+            candidates = [
+                var_name,
+                var_name.replace("support", "main"),
+                var_name.replace("generator/main/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
+                var_name.replace("generator/main/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
+                var_name.replace("generator/main/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator/main/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator/support/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
+                var_name.replace("generator/support/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
+                var_name.replace("generator/support/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator/support/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator_1/main/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator_1/main/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator_1/support/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator_1/support/External_attention/Variable_1", "mul4/x"),                
+            ]
+            
+            found = False
             for onnx_name, weight_data in onnx_weights.items():
-                if onnx_name in var_name_clean or var_name_clean in onnx_name:
-                    try:
-                        # Écriture directe dans la variable en session
-                        self.sess.run(var.assign(weight_data))
-                        replaced_count += 1
-                        break
-                    except Exception as e:
-                        print(f"Erreur pour {var.name} : {e}")
+                for key in candidates:
+                    # print("["+key+"]", "==", "["+onnx_name+"]", "?", (onnx_name in key) or (key in onnx_name))
+                    if (onnx_name in key) or (key in onnx_name) :                      
+                        try:
+                            if var.shape != weight_data.shape:
+                                weight_data = weight_data.reshape(var.shape)                            
+                            self.sess.run(var.assign(weight_data))
+                            print(f"[OK] Chargé : {var_name} <-- {key}")
+                            replaced_count += 1
+                            found = True                           
+                            break
+                        except Exception:
+                            print(f"[KO] Non chargé : {var_name} {var.shape} <-- {key} {weight_data.shape}")
+                            continue
+            
+            if not found:
+                unassigned_vars.append(var)
+
+        print(f"\n---> Variables restant non assignées après PASS 1 : {len(unassigned_vars)}")
+        
+        # PASS 2 : Remplissage de secours par Shape-Matching pour Support & Attention
+        # (Prend les poids ONNX non encore consommés ayant la même forme géométrique)
+        for var in unassigned_vars:
+            var_shape = tuple(var.get_shape().as_list())
+            print(f"[ATTENTION MANQUANTE] {var.name} (Shape: {var_shape}) nécessite une vérification manuelle.")
 
         print(
             f"Succès : {replaced_count} variables du Générateur ont été remplacées par l'ONNX !"
         )        
+        return replaced_count
 
 
     ##################################################################################
@@ -223,7 +268,7 @@ class AnimeGANv3(object) :
             self.color_loss = tf.constant(0.0) # 0.0
             self.tv_loss  = 0.0001 * total_variation_loss(self.generated)
             self.tv_loss_m = 0.0001 * total_variation_loss(self.generated_m)
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray, [0.1, 10.0, 50.0])
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray, [0.1, 8.0, 35.0])
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
@@ -304,10 +349,9 @@ class AnimeGANv3(object) :
             start_epoch = 0
             print(" [!] Load failed...")
 
-
-
         # loop for epoch
         steps = int(self.dataset_num / self.batch_size)
+        epoch = 0
         for epoch in range(start_epoch, self.epoch):
             print("Deb epoch", epoch)
             for idx in range(steps):
@@ -399,6 +443,7 @@ class AnimeGANv3(object) :
             print("End epoch", epoch)
 
         # Sauvegarde dernière epoch
+        print("Save final epoch", epoch)
         self.save(self.checkpoint_dir, epoch)
         if self.is_kaggle() :
             self.save_kaggle_checkpoint(self.dataset_name, epoch)
@@ -449,31 +494,28 @@ class AnimeGANv3(object) :
         self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '.model'), global_step=step, write_meta_graph=False)
 
     def load(self, checkpoint_dir):
-        print(" [*] Reading checkpoints...")
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-
-        ckpt = tf.train.get_checkpoint_state(checkpoint_dir) # checkpoint file information
-
-        if ckpt and ckpt.model_checkpoint_path:
-            ckpt_name = os.path.basename(ckpt.model_checkpoint_path) # first line
-            if  "resume" == self.load_or_resume :
-                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            else:
-                self.saver_load.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            counter = int(ckpt_name.split('-')[-1])
-            print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
-
-            if self.onnx_weights_file != '' :
-                self.replace_weights_generator(self.onnx_weights_file)
-
+        if self.onnx_weights_file != '' :
+            print(" [*] Reading onnx weigths...")
+            counter = self.replace_weights_generator(self.onnx_weights_file)
             return True, counter
-        else:
-            print(" [*] Failed to find a checkpoint")
+        else :
+            print(" [*] Reading checkpoints...")
+            checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
 
-            if self.onnx_weights_file != '' :
-                self.replace_weights_generator(self.onnx_weights_file)
+            ckpt = tf.train.get_checkpoint_state(checkpoint_dir) # checkpoint file information
 
-            return False, 0
+            if ckpt and ckpt.model_checkpoint_path:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path) # first line
+                if  "resume" == self.load_or_resume :
+                    self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                else:
+                    self.saver_load.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                counter = int(ckpt_name.split('-')[-1])
+                print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
+
+                return True, counter
+            else:
+                return False, 0
 
 
 

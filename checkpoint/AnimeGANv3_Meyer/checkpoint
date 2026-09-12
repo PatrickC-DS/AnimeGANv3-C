@@ -1,2 +1,2 @@
-model_checkpoint_path: "AnimeGANv3.model-24"
-all_model_checkpoint_paths: "AnimeGANv3.model-24"
+model_checkpoint_path: "AnimeGANv3.model-0"
+all_model_checkpoint_paths: "AnimeGANv3.model-0"
