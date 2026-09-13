@@ -21,7 +21,7 @@ from onnx import numpy_helper
 import os
 import json
 
-WB = True # True # White enad Black Style
+WB = False # True # White enad Black Style
 
 
 class AnimeGANv3(object) :
