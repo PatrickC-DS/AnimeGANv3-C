@@ -21,7 +21,7 @@ from onnx import numpy_helper
 import os
 import json
 
-WB = False # True # White enad Black Style
+WB = True # True # White enad Black Style
 
 
 class AnimeGANv3(object) :
@@ -65,9 +65,9 @@ class AnimeGANv3(object) :
         self.anime = tf.placeholder(tf.float32, [self.batch_size, self.img_size[0], self.img_size[1], self.img_ch], name='anime_image')
         self.anime_smooth = tf.placeholder(tf.float32, [self.batch_size, self.img_size[0], self.img_size[1], self.img_ch], name='anime_smooth_image')
 
-        self.real_generator = ImageGenerator('./dataset/train_photo', self.img_size, self.batch_size)
-        self.anime_image_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/style'), self.img_size, self.batch_size)
-        self.anime_smooth_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/smooth'), self.img_size, self.batch_size)
+        self.real_generator = ImageGenerator('./dataset/train_photo', self.img_size, self.batch_size, is_grayscale=WB)
+        self.anime_image_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/style'), self.img_size, self.batch_size, is_grayscale=WB)
+        self.anime_smooth_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/smooth'), self.img_size, self.batch_size, is_grayscale=WB)
         self.dataset_num = max(self.real_generator.num_images, self.anime_image_generator.num_images)
 
         print()
@@ -261,29 +261,32 @@ class AnimeGANv3(object) :
         """support"""
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
 
+        self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
+        self.sty_loss = self.s22  + self.s33 +  self.s44
+
         self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                         + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
 
+        self.g_adv_loss = generator_loss(fake_gray_logit)
+        self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+        self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
+
         if WB :
-            self.color_loss = tf.constant(0.0) # 0.0
-            self.tv_loss  = 0.0001 * total_variation_loss(self.generated)
-            self.tv_loss_m = 0.0001 * total_variation_loss(self.generated_m)
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray, [0.1, 8.0, 35.0])
+            self.color_loss = Lab_color_loss(self.real_photo, self.generated, 0. )
+            self.G_support_loss = (self.g_adv_loss * 0.5) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
-            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
-            self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
+            self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
 
-        self.sty_loss = self.s22  + self.s33 +  self.s44
-
-        self.g_adv_loss = generator_loss(fake_gray_logit)
-        self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
         self.D_support_loss = discriminator_loss(anime_gray_logit, fake_gray_logit) \
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
-        self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
+        if WB :
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
+        else :
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
+
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
 
         self.G_main_loss = self.g_m_loss + self.p0_loss + self.p4_loss + self.tv_loss_m

@@ -109,6 +109,7 @@ class AnimeGANv3(object) :
         # gan
         """support"""
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
+        # self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 1., 9.])
         self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
         self.sty_loss = self.s22  + self.s33 +  self.s44
 
@@ -221,6 +222,7 @@ class AnimeGANv3(object) :
                     # superpixel_batch = self.get_simple_superpixel(inter_out, seg_num=200)
                     superpixel_batch = self.get_seg(inter_out)
                     fake_NLMean_batch = self.get_NLMean_l0(inter_out_s)
+
                     train_feed_dict.update(
                         {
                             self.fake_superpixel: superpixel_batch,
@@ -318,12 +320,14 @@ class AnimeGANv3(object) :
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
 
         if not os.path.exists(checkpoint_dir):
+ 
             os.makedirs(checkpoint_dir)
         self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '.model'), global_step=step, write_meta_graph=False)
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir) # checkpoint file information
 
         if ckpt and ckpt.model_checkpoint_path:

@@ -6,73 +6,73 @@ import numpy as np
 
 class ImageGenerator(object):
 
-    def __init__(self, image_dir, image_size, batch_size, num_cpus = 8):
+    def __init__(self, image_dir, image_size, batch_size, num_cpus=8, is_grayscale=False):
         self.paths = self.get_image_paths_train(image_dir)
         self.num_images = len(self.paths)
         self.num_cpus = num_cpus
         self.size = image_size
         self.batch_size = batch_size
-
+        self.is_grayscale = is_grayscale  # Flag pour basculer N&B / Couleur
 
     def get_image_paths_train(self, image_dir):
         paths = []
-        i = 0
         for path in os.listdir(image_dir):
-            # Check extensions of filename
             if path.split('.')[-1].lower() not in ['jpg', 'jpeg', 'png']:
                 continue
-            # Construct complete path to anime image
             path_full = os.path.join(image_dir, path)
-            # Validate if colorized image exists
             if not os.path.isfile(path_full):
                 continue
             paths.append(path_full)
-            i += 1
-            #if i > 2000 :   # Fix pour réduire le dataset et donc le temps d'entrainement
-            #    return paths
         return paths
 
-
     def read_image(self, img_path):
+        path_str = img_path.decode()
 
-        if 'style' in img_path.decode() or 'smooth' in img_path.decode():
-            # color image1
-            image = cv2.imread(img_path.decode())
-            image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        if 'style' in path_str or 'smooth' in path_str:
+            # Lecture multi-format (1 ou 3 canaux)
+            image = cv2.imread(path_str, cv2.IMREAD_UNCHANGED)
+            if image is None:
+                raise ValueError(f"Impossible de lire : {path_str}")
+                
+            if len(image.shape) == 2:
+                # Si l'image est physiquement à 1 canal (N&B) -> Conversion RGB (R=G=B)
+                image1 = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).astype(np.float32)
+            else:
+                # Si l'image a 3 canaux (Couleur ou N&B 3 canaux)
+                image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+                
+                # N&B strict UNIQUEMENT si spécifié
+                if self.is_grayscale:
+                    gray = np.mean(image1, axis=-1, keepdims=True)
+                    image1 = np.repeat(gray, 3, axis=-1)
 
-            image2 = np.zeros(image1.shape).astype(np.float32)
+            image2 = np.zeros(image1.shape, dtype=np.float32)
+
         else:
-            # real photo
-            image = cv2.imread(img_path.decode())
+            # Real photos (toujours en couleur RGB)
+            image = cv2.imread(path_str)
             image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-            # Color segmentation (ie. region smooth) photo
-            image = cv2.imread(img_path.decode().replace('train_photo', "seg_train_5-0.8-50"))
-            image2 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+            
+            seg_path = path_str.replace('train_photo', "seg_train_5-0.8-50")
+            image_seg = cv2.imread(seg_path)
+            
+            if image_seg is not None:
+                image2 = cv2.cvtColor(image_seg, cv2.COLOR_BGR2RGB).astype(np.float32)
+            else:
+                image2 = np.zeros_like(image1, dtype=np.float32)
+
         return image1, image2
 
-
-    def process_image(self, img_path ):
+    def process_image(self, img_path):
         image1, image2 = self.read_image(img_path)
-        if image1.shape[0] != 256 or image1.shape[1] != 256 or image2.shape[0] != 256 or image2.shape[1] != 256 :
-            print("process_image", img_path, image1.shape, image2.shape)
-        processing_image1 = image1/ 127.5 - 1.0
-        processing_image2 = image2/ 127.5 - 1.0
-        return (processing_image1,processing_image2)
+        processing_image1 = image1 / 127.5 - 1.0
+        processing_image2 = image2 / 127.5 - 1.0
+        return processing_image1, processing_image2
 
     def load_images(self):
         dataset = tf.data.Dataset.from_tensor_slices(self.paths)
-
-        # Repeat indefinitely
         dataset = dataset.repeat()
-
-        # Unform shuffle
         dataset = dataset.shuffle(buffer_size=len(self.paths))
-
-        # Map path to image
-        dataset = dataset.map(lambda img_path: tf.py_func(self.process_image, [img_path], [tf.float32,tf.float32]),self.num_cpus)
-
+        dataset = dataset.map(lambda img_path: tf.py_func(self.process_image, [img_path], [tf.float32, tf.float32]), self.num_cpus)
         dataset = dataset.batch(self.batch_size)
-
-        img1,img2 = dataset.make_one_shot_iterator().get_next()
-
-        return img1,img2
+        return dataset.make_one_shot_iterator().get_next()
