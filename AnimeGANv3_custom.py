@@ -273,7 +273,7 @@ class AnimeGANv3(object) :
 
         if WB :
             self.color_loss = Lab_color_loss(self.real_photo, self.generated, 0. )
-            self.G_support_loss = (self.g_adv_loss * 0.5) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
+            self.G_support_loss = (self.g_adv_loss * 0.2) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
             self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
@@ -282,10 +282,7 @@ class AnimeGANv3(object) :
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
-        if WB :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
-        else :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
+        self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
 
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
 
