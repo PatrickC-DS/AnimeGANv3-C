@@ -266,7 +266,10 @@ class AnimeGANv3(object) :
         """support"""
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
 
-        self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
+        if WB :
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.01, 0.2, 0.5])
+        else :
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
         self.sty_loss = self.s22  + self.s33 +  self.s44
 
         self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \

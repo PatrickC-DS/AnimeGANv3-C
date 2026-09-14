@@ -16,6 +16,7 @@ class ImageGenerator(object):
 
     def get_image_paths_train(self, image_dir):
         paths = []
+        i = 0
         for path in os.listdir(image_dir):
             if path.split('.')[-1].lower() not in ['jpg', 'jpeg', 'png']:
                 continue
@@ -23,6 +24,9 @@ class ImageGenerator(object):
             if not os.path.isfile(path_full):
                 continue
             paths.append(path_full)
+            i += 1
+            if i > 1000 :   # Fix pour rÃ©duire le dataset et donc le temps d'entrainement
+                return paths
         return paths
 
     def read_image(self, img_path):
