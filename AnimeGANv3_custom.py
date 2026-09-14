@@ -23,7 +23,6 @@ import json
 
 WB = True # True # White enad Black Style
 
-
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
         self.model_name = 'AnimeGANv3'
@@ -234,11 +233,17 @@ class AnimeGANv3(object) :
 
         """ Define Generator, Discriminator """
         self.generated_s,  self.generated_m = self.generator(self.real_photo, is_training=True)
-        self.generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.generated_s),self.sigm_out_scale(self.generated_s), 2, 0.01)) #0.25**2
+        if WB :
+            self.generated = self.generated_s
+        else :
+            self.generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.generated_s),self.sigm_out_scale(self.generated_s), 2, 0.01)) #0.25**2
 
         """for val"""
         self.val_generated_s, self.val_generated_m = self.generator(self.val_real, is_training=False, reuse=True)
-        self.val_generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.val_generated_s), self.sigm_out_scale(self.val_generated_s), 2, 0.01))  # 0.25**2
+        if WB :
+            self.val_generated = self.val_generated_s
+        else :
+            self.val_generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.val_generated_s), self.sigm_out_scale(self.val_generated_s), 2, 0.01))  # 0.25**2
 
         # gray maping
         self.fake_sty_gray = tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(self.generated))
@@ -282,7 +287,10 @@ class AnimeGANv3(object) :
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
-        self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
+        if WB :
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.
+        else :
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
 
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
 
@@ -297,15 +305,21 @@ class AnimeGANv3(object) :
         G_vars = [var for var in t_vars if 'generator' in var.name]
         D_vars = [var for var in t_vars if 'discriminator' in var.name]
 
-        # init G
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
+        # Séparer les update_ops de G et de D
+        g_update_ops = [op for op in tf.get_collection(tf.GraphKeys.UPDATE_OPS) if 'generator' in op.name]
+        d_update_ops = [op for op in tf.get_collection(tf.GraphKeys.UPDATE_OPS) if 'discriminator' in op.name]
+
+        # Init G Optimiser (utilise uniquement les ops de G)
+        with tf.control_dependencies(g_update_ops):
             self.init_G_optim = tf.train.AdamOptimizer(self.init_G_lr, beta1=0.5, beta2=0.999).minimize(self.Pre_train_G_loss, var_list=G_vars)
-        ###
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            self.G_optim = tf.train.AdamOptimizer(self.g_lr , beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
-            self.D_optim = tf.train.AdamOptimizer(self.d_lr , beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
+
+        # Main G Optimiser (utilise uniquement les ops de G)
+        with tf.control_dependencies(g_update_ops):
+            self.G_optim = tf.train.AdamOptimizer(self.g_lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
+
+        # Main D Optimiser (utilise uniquement les ops de D)
+        with tf.control_dependencies(d_update_ops):
+            self.D_optim = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
 
         """" Summary """
         #

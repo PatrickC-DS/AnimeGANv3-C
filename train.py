@@ -29,8 +29,8 @@ def parse_args():
     parser.add_argument('--load_or_resume', type=str.lower, default="load", choices=["load", "resume"], help='load is used for fine-tuning and resume is used to continue training.')
 
     parser.add_argument('--init_G_lr', type=float, default=2e-4, help='The generator learning rate')
-    parser.add_argument('--g_lr', type=float, default=1e-4, help='The learning rate')
-    parser.add_argument('--d_lr', type=float, default=1e-5, help='The learning rate')
+    parser.add_argument('--g_lr', type=float, default=1e-5, help='The learning rate')
+    parser.add_argument('--d_lr', type=float, default=1e-4, help='The learning rate')
 
     # ---------------------------------------------
     parser.add_argument('--img_size', type=int, nargs='+', default=[256,256], help='The size of image: H and W')
