@@ -292,7 +292,7 @@ class AnimeGANv3(object) :
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
         if WB :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.1.
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.1
         else :
             self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
 
