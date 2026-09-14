@@ -21,7 +21,8 @@ from onnx import numpy_helper
 import os
 import json
 
-WB = True # True # White enad Black Style
+WB = True       # True # White enad Black Style
+WB_test = False # True # White enad Black Style
 
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
@@ -233,14 +234,14 @@ class AnimeGANv3(object) :
 
         """ Define Generator, Discriminator """
         self.generated_s,  self.generated_m = self.generator(self.real_photo, is_training=True)
-        if WB :
+        if WB_test :
             self.generated = self.generated_s
         else :
             self.generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.generated_s),self.sigm_out_scale(self.generated_s), 2, 0.01)) #0.25**2
 
         """for val"""
         self.val_generated_s, self.val_generated_m = self.generator(self.val_real, is_training=False, reuse=True)
-        if WB :
+        if WB_test :
             self.val_generated = self.val_generated_s
         else :
             self.val_generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.val_generated_s), self.sigm_out_scale(self.val_generated_s), 2, 0.01))  # 0.25**2
@@ -281,7 +282,7 @@ class AnimeGANv3(object) :
 
         if WB :
             self.color_loss = Lab_color_loss(self.real_photo, self.generated, 0. )
-            self.G_support_loss = (self.g_adv_loss * 0.2) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
+            self.G_support_loss = (self.g_adv_loss * 0.5) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
             self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
@@ -291,7 +292,7 @@ class AnimeGANv3(object) :
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
         if WB :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.
+            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.1.
         else :
             self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
 
