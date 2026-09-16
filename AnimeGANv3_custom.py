@@ -268,21 +268,23 @@ class AnimeGANv3(object) :
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
 
         if WB :
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.01, 0.2, 0.5])
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.5, 0.8, 2.])
+            self.tv_loss  = 0.005 * total_variation_loss(self.generated)
+            self.tv_loss_m = 0.005 * total_variation_loss(self.generated_m)
         else :
             self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
+            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
         self.sty_loss = self.s22  + self.s33 +  self.s44
 
         self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                         + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
 
         self.g_adv_loss = generator_loss(fake_gray_logit)
-        self.tv_loss  = 0.001 * total_variation_loss(self.generated)
-        self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
 
         if WB :
             self.color_loss = Lab_color_loss(self.real_photo, self.generated, 0. )
-            self.G_support_loss = (self.g_adv_loss * 0.5) + self.con_loss + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
+            self.G_support_loss = (self.g_adv_loss * 1.0) + (self.con_loss * 0.3) + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
             self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
