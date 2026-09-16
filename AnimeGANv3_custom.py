@@ -88,11 +88,12 @@ class AnimeGANv3(object) :
     def save_kaggle_checkpoint(self, style, epoch) :
         from kaggle_secrets import UserSecretsClient
         user_secrets = UserSecretsClient()
-        secret_value = user_secrets.get_secret("checkpoint token")
+        checkpoint_secret = user_secrets.get_secret("checkpoint token")
+        unsername_secret = user_secrets.get_secret("username token")
         
         # Configuration des identifiants Kaggle
-        os.environ['KAGGLE_USERNAME'] = "wilt36"
-        os.environ['KAGGLE_KEY'] = secret_value
+        os.environ['KAGGLE_USERNAME'] = unsername_secret
+        os.environ['KAGGLE_KEY'] = checkpoint_secret
         
         from kaggle.api.kaggle_api_extended import KaggleApi
         api = KaggleApi()
