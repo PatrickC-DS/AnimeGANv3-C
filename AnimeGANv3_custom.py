@@ -485,14 +485,21 @@ class AnimeGANv3(object) :
 
     def get_seg(self, batch_image):
         def get_superpixel(image):
-            image = (image + 1.) * 127.5
+            # 1. Sécurité anti-NaN / Inf avant tout traitement
+            if np.isnan(image).any() or np.isinf(image).any():
+                image = np.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
+
+            # 2. Conversion sécurisée en uint8
+            image = (image + 1.0) * 127.5
             image = np.clip(image, 0, 255).astype(np.uint8)  # [-1. ,1.] ~ [0, 255]
+
+            # 3. Segmentation Felzenszwalb
             image_seg = segmentation.felzenszwalb(image, scale=5, sigma=0.8, min_size=50)
-            image = color.label2rgb(image_seg, image,  bg_label=-1, kind='avg').astype(np.float32)
+            image = color.label2rgb(image_seg, image, bg_label=-1, kind='avg').astype(np.float32)
             image = image / 127.5 - 1.0
             return image
         num_job = np.shape(batch_image)[0]
-        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
+        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel)(image) for image in batch_image)
         return np.array(batch_out)
 
     def get_simple_superpixel(self, batch_image, seg_num=200):
