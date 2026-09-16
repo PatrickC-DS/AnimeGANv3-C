@@ -485,7 +485,7 @@ class AnimeGANv3(object) :
 
     def get_seg(self, batch_image):
         def get_superpixel(image):
-            # 1. Sécurité anti-NaN / Inf avant tout traitement
+            # Sécurité anti-NaN / Inf avant tout traitement
             if np.isnan(image).any() or np.isinf(image).any():
                 image = np.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
 
@@ -513,6 +513,10 @@ class AnimeGANv3(object) :
 
     def get_NLMean_l0(self, batch_image, ):
         def process_revision(image):
+            # Nettoyage de sécurité avant l'entrée dans OpenCV / FastNLMeans 
+            if np.isnan(image).any() or np.isinf(image).any():
+                image = np.nan_to_num(image, nan=-1.0, posinf=1.0, neginf=-1.0)
+
             image = ((image + 1) * 127.5).clip(0, 255).astype(np.uint8)
             image = cv2.fastNlMeansDenoisingColored(image, None, 5, 6, 5, 7)
             image = L0Smoothing(image/255, 0.005).astype(np.float32) * 2. - 1.
