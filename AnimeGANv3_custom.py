@@ -91,7 +91,7 @@ class AnimeGANv3(object) :
         secret_value = user_secrets.get_secret("checkpoint token")
         
         # Configuration des identifiants Kaggle
-        os.environ['KAGGLE_USERNAME'] = "patrick2colin"
+        os.environ['KAGGLE_USERNAME'] = "wilt36"
         os.environ['KAGGLE_KEY'] = secret_value
         
         from kaggle.api.kaggle_api_extended import KaggleApi
