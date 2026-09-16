@@ -268,7 +268,7 @@ class AnimeGANv3(object) :
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
 
         if WB :
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.5, 0.8, 2.])
+            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.01, 0.3, 1.2])
             self.tv_loss  = 0.005 * total_variation_loss(self.generated)
             self.tv_loss_m = 0.005 * total_variation_loss(self.generated_m)
         else :
@@ -324,8 +324,18 @@ class AnimeGANv3(object) :
             self.G_optim = tf.train.AdamOptimizer(self.g_lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
 
         # Main D Optimiser (utilise uniquement les ops de D)
-        with tf.control_dependencies(d_update_ops):
-            self.D_optim = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
+        if WB :
+            optimizer_d = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999)
+            grads_and_vars_d = optimizer_d.compute_gradients(self.Discriminator_loss, var_list=D_vars)
+            clipped_grads_d = [
+                (tf.clip_by_value(grad, -1.0, 1.0), var) 
+                for grad, var in grads_and_vars_d if grad is not None
+            ]
+            with tf.control_dependencies(d_update_ops):
+                self.D_optim = optimizer_d.apply_gradients(clipped_grads_d)
+        else :    
+            with tf.control_dependencies(d_update_ops):
+                self.D_optim = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
 
         """" Summary """
         #
