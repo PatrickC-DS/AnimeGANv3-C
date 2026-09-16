@@ -33,32 +33,32 @@ class ImageGenerator(object):
         path_str = img_path.decode()
 
         if 'style' in path_str or 'smooth' in path_str:
-            # Lecture multi-format (1 ou 3 canaux)
-            image = cv2.imread(path_str, cv2.IMREAD_UNCHANGED)
+            # Forcer la lecture en 3 canaux BGR réels (élimine le canal Alpha automatiquement)
+            image = cv2.imread(path_str, cv2.IMREAD_COLOR)
             if image is None:
-                raise ValueError(f"Impossible de lire : {path_str}")
+                raise ValueError(f"Impossible de lire l'image : {path_str}")
                 
-            if len(image.shape) == 2:
-                # Si l'image est physiquement à 1 canal (N&B) -> Conversion RGB (R=G=B)
-                image1 = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).astype(np.float32)
-            else:
-                # Si l'image a 3 canaux (Couleur ou N&B 3 canaux)
-                image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+            # Conversion BGR vers RGB (marche pour les vraies couleurs et le N&B 3 canaux)
+            image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
                 
-                # N&B strict UNIQUEMENT si spécifié
-                if self.is_grayscale:
-                    gray = np.mean(image1, axis=-1, keepdims=True)
-                    image1 = np.repeat(gray, 3, axis=-1)
+            # Forcer un N&B 3 canaux parfait (R=G=B) si demandé ou si is_grayscale
+            if self.is_grayscale:
+                # Conversion plus exacte en niveaux de gris basée sur la luminance ITU-R BT.601
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # Shape: (H, W)
+                image1 = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB).astype(np.float32)
 
-            image2 = np.zeros(image1.shape, dtype=np.float32)
+            image2 = np.zeros_like(image1, dtype=np.float32)
 
         else:
-            # Real photos (toujours en couleur RGB)
-            image = cv2.imread(path_str)
+            # Photos réelles (toujours 3 canaux RGB)
+            image = cv2.imread(path_str, cv2.IMREAD_COLOR)
+            if image is None:
+                raise ValueError(f"Impossible de lire la photo : {path_str}")
+                
             image1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
             
             seg_path = path_str.replace('train_photo', "seg_train_5-0.8-50")
-            image_seg = cv2.imread(seg_path)
+            image_seg = cv2.imread(seg_path, cv2.IMREAD_COLOR)
             
             if image_seg is not None:
                 image2 = cv2.cvtColor(image_seg, cv2.COLOR_BGR2RGB).astype(np.float32)
@@ -66,6 +66,8 @@ class ImageGenerator(object):
                 image2 = np.zeros_like(image1, dtype=np.float32)
 
         return image1, image2
+
+
 
     def process_image(self, img_path):
         image1, image2 = self.read_image(img_path)
