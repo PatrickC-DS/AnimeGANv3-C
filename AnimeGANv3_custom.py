@@ -21,8 +21,8 @@ from onnx import numpy_helper
 import os
 import json
 
-WB = True       # True # White enad Black Style
-WB_test = False # True # White enad Black Style
+WB = True # True # White enad Black Style
+
 
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
@@ -65,9 +65,9 @@ class AnimeGANv3(object) :
         self.anime = tf.placeholder(tf.float32, [self.batch_size, self.img_size[0], self.img_size[1], self.img_ch], name='anime_image')
         self.anime_smooth = tf.placeholder(tf.float32, [self.batch_size, self.img_size[0], self.img_size[1], self.img_ch], name='anime_smooth_image')
 
-        self.real_generator = ImageGenerator('./dataset/train_photo', self.img_size, self.batch_size, is_grayscale=WB)
-        self.anime_image_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/style'), self.img_size, self.batch_size, is_grayscale=WB)
-        self.anime_smooth_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/smooth'), self.img_size, self.batch_size, is_grayscale=WB)
+        self.real_generator = ImageGenerator('./dataset/train_photo', self.img_size, self.batch_size)
+        self.anime_image_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/style'), self.img_size, self.batch_size)
+        self.anime_smooth_generator = ImageGenerator('./dataset/{}'.format(self.dataset_name + '/smooth'), self.img_size, self.batch_size)
         self.dataset_num = max(self.real_generator.num_images, self.anime_image_generator.num_images)
 
         print()
@@ -88,12 +88,11 @@ class AnimeGANv3(object) :
     def save_kaggle_checkpoint(self, style, epoch) :
         from kaggle_secrets import UserSecretsClient
         user_secrets = UserSecretsClient()
-        checkpoint_secret = user_secrets.get_secret("checkpoint token")
-        unsername_secret = user_secrets.get_secret("username token")
+        secret_value = user_secrets.get_secret("checkpoint token")
         
         # Configuration des identifiants Kaggle
-        os.environ['KAGGLE_USERNAME'] = unsername_secret
-        os.environ['KAGGLE_KEY'] = checkpoint_secret
+        os.environ['KAGGLE_USERNAME'] = "patrick2colin"
+        os.environ['KAGGLE_KEY'] = secret_value
         
         from kaggle.api.kaggle_api_extended import KaggleApi
         api = KaggleApi()
@@ -150,12 +149,6 @@ class AnimeGANv3(object) :
                 weight = np.transpose(weight, (2, 3, 1, 0))
             onnx_weights[initializer.name] = weight
 
-        """
-        print("----------- ONNX --------------")
-        for onnx_name, weight_data in onnx_weights.items():
-            print(onnx_name)
-        print("----------- ONNX --------------") 
-        """
         return onnx_weights
 
     def replace_weights_generator(self, filename_onnx) :
@@ -172,57 +165,19 @@ class AnimeGANv3(object) :
         ]
 
         replaced_count = 0
-        unassigned_vars = []
-            
-        # PASS 1 : Match par nom exact ou permutation de préfixe (generator_1 <-> generator)
         for var in gen_vars:
-            var_name = var.name.split(':')[0]
+            var_name_clean = var.name.split(":")[0]
 
-            # Générer les clés candidates dans l'ONNX
-            candidates = [
-                var_name,
-                var_name.replace("support", "main"),
-                var_name.replace("generator/main/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
-                var_name.replace("generator/main/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
-                var_name.replace("generator/main/External_attention/Variable", "External_attention/add/x"),
-                var_name.replace("generator/main/External_attention/Variable_1", "mul4/x"),                
-                var_name.replace("generator/support/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
-                var_name.replace("generator/support/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
-                var_name.replace("generator/support/External_attention/Variable", "External_attention/add/x"),
-                var_name.replace("generator/support/External_attention/Variable_1", "mul4/x"),                
-                var_name.replace("generator_1/main/External_attention/Variable", "External_attention/add/x"),
-                var_name.replace("generator_1/main/External_attention/Variable_1", "mul4/x"),                
-                var_name.replace("generator_1/support/External_attention/Variable", "External_attention/add/x"),
-                var_name.replace("generator_1/support/External_attention/Variable_1", "mul4/x"),                
-            ]
-            
-            found = False
+            # Chercher la correspondance dans les poids ONNX
             for onnx_name, weight_data in onnx_weights.items():
-                for key in candidates:
-                    # print("["+key+"]", "==", "["+onnx_name+"]", "?", (onnx_name in key) or (key in onnx_name))
-                    if (onnx_name in key) or (key in onnx_name) :                      
-                        try:
-                            if var.shape != weight_data.shape:
-                                weight_data = weight_data.reshape(var.shape)                            
-                            self.sess.run(var.assign(weight_data))
-                            print(f"[OK] Chargé : {var_name} <-- {key}")
-                            replaced_count += 1
-                            found = True                           
-                            break
-                        except Exception:
-                            print(f"[KO] Non chargé : {var_name} {var.shape} <-- {key} {weight_data.shape}")
-                            continue
-            
-            if not found:
-                unassigned_vars.append(var)
-
-        print(f"\n---> Variables restant non assignées après PASS 1 : {len(unassigned_vars)}")
-        
-        # PASS 2 : Remplissage de secours par Shape-Matching pour Support & Attention
-        # (Prend les poids ONNX non encore consommés ayant la même forme géométrique)
-        for var in unassigned_vars:
-            var_shape = tuple(var.get_shape().as_list())
-            print(f"[ATTENTION MANQUANTE] {var.name} (Shape: {var_shape}) nécessite une vérification manuelle.")
+                if onnx_name in var_name_clean or var_name_clean in onnx_name:
+                    try:
+                        # Écriture directe dans la variable en session
+                        self.sess.run(var.assign(weight_data))
+                        replaced_count += 1
+                        break
+                    except Exception as e:
+                        print(f"Erreur pour {var.name} : {e}")
 
         print(
             f"Succès : {replaced_count} variables du Générateur ont été remplacées par l'ONNX !"
@@ -235,17 +190,11 @@ class AnimeGANv3(object) :
 
         """ Define Generator, Discriminator """
         self.generated_s,  self.generated_m = self.generator(self.real_photo, is_training=True)
-        if WB_test :
-            self.generated = self.generated_s
-        else :
-            self.generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.generated_s),self.sigm_out_scale(self.generated_s), 2, 0.01)) #0.25**2
+        self.generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.generated_s),self.sigm_out_scale(self.generated_s), 2, 0.01)) #0.25**2
 
         """for val"""
         self.val_generated_s, self.val_generated_m = self.generator(self.val_real, is_training=False, reuse=True)
-        if WB_test :
-            self.val_generated = self.val_generated_s
-        else :
-            self.val_generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.val_generated_s), self.sigm_out_scale(self.val_generated_s), 2, 0.01))  # 0.25**2
+        self.val_generated = self.tanh_out_scale(guided_filter(self.sigm_out_scale(self.val_generated_s), self.sigm_out_scale(self.val_generated_s), 2, 0.01))  # 0.25**2
 
         # gray maping
         self.fake_sty_gray = tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(self.generated))
@@ -268,37 +217,23 @@ class AnimeGANv3(object) :
         """support"""
         self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
 
-        if WB :
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.01, 0.3, 1.2])
-            self.tv_loss  = 0.005 * total_variation_loss(self.generated)
-            self.tv_loss_m = 0.005 * total_variation_loss(self.generated_m)
-        else :
-            self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
-            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
-            self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
-        self.sty_loss = self.s22  + self.s33 +  self.s44
-
         self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                         + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
 
-        self.g_adv_loss = generator_loss(fake_gray_logit)
-
         if WB :
-            self.color_loss = Lab_color_loss(self.real_photo, self.generated, 0. )
-            self.G_support_loss = (self.g_adv_loss * 1.0) + (self.con_loss * 0.3) + self.sty_loss + self.rs_loss + self.color_loss + self.tv_loss
+            self.color_loss = tf.constant(0.0) 
         else :
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
-            self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
 
+        self.sty_loss = self.s22  + self.s33 +  self.s44
+
+        self.g_adv_loss = generator_loss(fake_gray_logit)
+        self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss   + self.rs_loss +  self.color_loss +self.tv_loss
         self.D_support_loss = discriminator_loss(anime_gray_logit, fake_gray_logit) \
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
         """main"""
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
-        if WB :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 0.1
-        else :
-            self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 1.
-
+        self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
 
         self.G_main_loss = self.g_m_loss + self.p0_loss + self.p4_loss + self.tv_loss_m
@@ -312,31 +247,15 @@ class AnimeGANv3(object) :
         G_vars = [var for var in t_vars if 'generator' in var.name]
         D_vars = [var for var in t_vars if 'discriminator' in var.name]
 
-        # Séparer les update_ops de G et de D
-        g_update_ops = [op for op in tf.get_collection(tf.GraphKeys.UPDATE_OPS) if 'generator' in op.name]
-        d_update_ops = [op for op in tf.get_collection(tf.GraphKeys.UPDATE_OPS) if 'discriminator' in op.name]
-
-        # Init G Optimiser (utilise uniquement les ops de G)
-        with tf.control_dependencies(g_update_ops):
+        # init G
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
             self.init_G_optim = tf.train.AdamOptimizer(self.init_G_lr, beta1=0.5, beta2=0.999).minimize(self.Pre_train_G_loss, var_list=G_vars)
-
-        # Main G Optimiser (utilise uniquement les ops de G)
-        with tf.control_dependencies(g_update_ops):
-            self.G_optim = tf.train.AdamOptimizer(self.g_lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
-
-        # Main D Optimiser (utilise uniquement les ops de D)
-        if WB :
-            optimizer_d = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999)
-            grads_and_vars_d = optimizer_d.compute_gradients(self.Discriminator_loss, var_list=D_vars)
-            clipped_grads_d = [
-                (tf.clip_by_value(grad, -1.0, 1.0), var) 
-                for grad, var in grads_and_vars_d if grad is not None
-            ]
-            with tf.control_dependencies(d_update_ops):
-                self.D_optim = optimizer_d.apply_gradients(clipped_grads_d)
-        else :    
-            with tf.control_dependencies(d_update_ops):
-                self.D_optim = tf.train.AdamOptimizer(self.d_lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
+        ###
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.G_optim = tf.train.AdamOptimizer(self.g_lr , beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
+            self.D_optim = tf.train.AdamOptimizer(self.d_lr , beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
 
         """" Summary """
         #
@@ -486,21 +405,14 @@ class AnimeGANv3(object) :
 
     def get_seg(self, batch_image):
         def get_superpixel(image):
-            # Sécurité anti-NaN / Inf avant tout traitement
-            if np.isnan(image).any() or np.isinf(image).any():
-                image = np.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
-
-            # 2. Conversion sécurisée en uint8
-            image = (image + 1.0) * 127.5
+            image = (image + 1.) * 127.5
             image = np.clip(image, 0, 255).astype(np.uint8)  # [-1. ,1.] ~ [0, 255]
-
-            # 3. Segmentation Felzenszwalb
             image_seg = segmentation.felzenszwalb(image, scale=5, sigma=0.8, min_size=50)
-            image = color.label2rgb(image_seg, image, bg_label=-1, kind='avg').astype(np.float32)
+            image = color.label2rgb(image_seg, image,  bg_label=-1, kind='avg').astype(np.float32)
             image = image / 127.5 - 1.0
             return image
         num_job = np.shape(batch_image)[0]
-        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel)(image) for image in batch_image)
+        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
         return np.array(batch_out)
 
     def get_simple_superpixel(self, batch_image, seg_num=200):
@@ -514,10 +426,6 @@ class AnimeGANv3(object) :
 
     def get_NLMean_l0(self, batch_image, ):
         def process_revision(image):
-            # Nettoyage de sécurité avant l'entrée dans OpenCV / FastNLMeans 
-            if np.isnan(image).any() or np.isinf(image).any():
-                image = np.nan_to_num(image, nan=-1.0, posinf=1.0, neginf=-1.0)
-
             image = ((image + 1) * 127.5).clip(0, 255).astype(np.uint8)
             image = cv2.fastNlMeansDenoisingColored(image, None, 5, 6, 5, 7)
             image = L0Smoothing(image/255, 0.005).astype(np.float32) * 2. - 1.
@@ -537,7 +445,7 @@ class AnimeGANv3(object) :
 
     def load(self, checkpoint_dir):
         if self.onnx_weights_file != '' :
-            print(" [*] Reading onnx weigths...")
+            print(" [*] Reading onnx weights...")
             counter = self.replace_weights_generator(self.onnx_weights_file)
             return True, counter
         else :
@@ -554,6 +462,9 @@ class AnimeGANv3(object) :
                     self.saver_load.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
                 counter = int(ckpt_name.split('-')[-1])
                 print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
+
+                if self.onnx_weights_file != '' :
+                    self.replace_weights_generator(self.onnx_weights_file)
 
                 return True, counter
             else:

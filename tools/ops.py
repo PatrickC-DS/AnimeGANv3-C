@@ -312,41 +312,28 @@ def generator_loss(fake):
     fake_loss = tf.reduce_mean(tf.square(fake - 0.9))
     return fake_loss
 
-def discriminator_loss(anime_logit, fake_logit):
-    # 1. Remplacer tout NaN ou Inf potentiel en entrée par des valeurs sûres
-    anime_logit = tf.where(tf.math.is_nan(anime_logit), tf.ones_like(anime_logit) * 0.9, anime_logit)
-    fake_logit = tf.where(tf.math.is_nan(fake_logit), tf.ones_like(fake_logit) * 0.1, fake_logit)
-    
-    # 2. Clipper les logits pour éviter la saturation quadratique
-    anime_logit = tf.clip_by_value(anime_logit, -10.0, 10.0)
-    fake_logit = tf.clip_by_value(fake_logit, -10.0, 10.0)
-
-    # 3. Calcul LSGAN
+def discriminator_loss( anime_logit, fake_logit):
+    # lsgan :
     anime_gray_logit_loss = tf.reduce_mean(tf.square(anime_logit - 0.9))
-    fake_gray_logit_loss = tf.reduce_mean(tf.square(fake_logit - 0.1))
-    
-    loss = 0.5 * anime_gray_logit_loss + 1.0 * fake_gray_logit_loss
+    fake_gray_logit_loss = tf.reduce_mean(tf.square(fake_logit-0.1))
+    # loss =   0.5 * anime_gray_logit_loss  \ # Hayao
+    loss =   0.5 * anime_gray_logit_loss  \
+           + 1.0 * fake_gray_logit_loss
     return loss
 
 
 def discriminator_loss_346(fake_logit):
-    fake_logit = tf.where(tf.math.is_nan(fake_logit), tf.ones_like(fake_logit) * 0.1, fake_logit)
-    fake_logit = tf.clip_by_value(fake_logit, -10.0, 10.0)
+    # lsgan :
+    fake_logit_loss = tf.reduce_mean(tf.square(fake_logit- 0.1))
+    loss =  1.0 * fake_logit_loss
+    return loss
 
-    fake_logit_loss = tf.reduce_mean(tf.square(fake_logit - 0.1))
-    return 1.0 * fake_logit_loss
-
-
+# main
 def discriminator_loss_m(real, fake):
-    real = tf.where(tf.math.is_nan(real), tf.ones_like(real), real)
-    fake = tf.where(tf.math.is_nan(fake), tf.zeros_like(fake), fake)
-
-    real = tf.clip_by_value(real, -10.0, 10.0)
-    fake = tf.clip_by_value(fake, -10.0, 10.0)
-
-    real_loss = tf.reduce_mean(tf.square(real - 1.0))
+    real_loss = tf.reduce_mean(tf.square(real - 1.))
     fake_loss = tf.reduce_mean(tf.square(fake))
-    return real_loss + fake_loss
+    loss = real_loss + fake_loss
+    return loss
 
 def generator_loss_m(fake):
     loss = tf.reduce_mean(tf.square(fake - 1.))

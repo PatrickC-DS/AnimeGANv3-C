@@ -1,7 +1,3 @@
-"""
-Construction d'un modele onnx à partir de la version checkpoint courante d'un style 
-"""
-
 import tools.patch        # Reçoit le patch magique qui intercepte tensorflow.contrib !
 import tensorflow.compat.v1 as tf
 import sys
@@ -9,6 +5,9 @@ from net import generator  # Importe le générateur de votre projet AnimeGANv3
 
 import subprocess
 import sys
+
+# Construction de la commande sous forme de liste d'arguments
+
 
 def convert_pb_to_onnx(command) :
     print("Conversion du modèle .pb vers .onnx")

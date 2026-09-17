@@ -30,7 +30,7 @@ def parse_args():
 
     parser.add_argument('--init_G_lr', type=float, default=2e-4, help='The generator learning rate')
     parser.add_argument('--g_lr', type=float, default=1e-5, help='The learning rate')
-    parser.add_argument('--d_lr', type=float, default=2e-5, help='The learning rate')
+    parser.add_argument('--d_lr', type=float, default=1e-5, help='The learning rate')
 
     # ---------------------------------------------
     parser.add_argument('--img_size', type=int, nargs='+', default=[256,256], help='The size of image: H and W')
@@ -81,14 +81,13 @@ def train():
       exit()
     if len(args.img_size) == 1:
         args.img_size = [args.img_size, args.img_size]
-    """
+
     if args.style_dataset == "Hayao" :
         AnimeGANv3 = AnimeGANv3_Hayao
     elif args.style_dataset == "Shinkai" :
         AnimeGANv3 = AnimeGANv3_Shinkai
     else :
-    """
-    AnimeGANv3 = AnimeGANv3_Custom
+        AnimeGANv3 = AnimeGANv3_Custom
     # open session
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True,inter_op_parallelism_threads=8,
     #                           intra_op_parallelism_threads=8,gpu_options=gpu_options)) as sess:
