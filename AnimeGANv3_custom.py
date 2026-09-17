@@ -235,8 +235,8 @@ class AnimeGANv3(object) :
         self.D_support_loss = discriminator_loss(anime_gray_logit, fake_gray_logit) \
                             + discriminator_loss_346(gray_anime_smooth_logit) * 2.0
 
-
         """main"""
+        self.tv_loss_m = 0.001 * total_variation_loss(self.generated_m)
         self.p4_loss = VGG_LOSS(self.fake_NLMean_l0, self.generated_m) * 0.5
         self.p0_loss = L1_loss(self.fake_NLMean_l0, self.generated_m) * 50.
         self.g_m_loss = generator_loss_m(generated_m_logit) * 0.02
