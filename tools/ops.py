@@ -396,6 +396,14 @@ def style_loss_decentralization_3(style, fake, weight):
     loss2_2 = L1_loss(gram(style_2), gram(fake_2))/tf.cast(c_2,tf.float32)
     return  weight[0] * loss2_2, weight[1] * loss3_3, weight[2] * loss4_4
 
+def bw_loss(image):
+    r, g, b = tf.split(image, 3, axis=3)
+
+    return (
+        tf.reduce_mean(tf.abs(r - g)) +
+        tf.reduce_mean(tf.abs(r - b)) +
+        tf.reduce_mean(tf.abs(g - b))
+    ) / 3.0
 
 def Lab_color_loss(photo, fake, weight=1.0):
     photo = (photo + 1.0) / 2.0
