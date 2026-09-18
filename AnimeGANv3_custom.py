@@ -23,6 +23,9 @@ import json
 
 WB = True # True # White enad Black Style
 
+def print_memory(prefix=""):
+    ram = process.memory_info().rss / 1024**3
+    print(f"{prefix} RAM = {ram:.2f} GB")
 
 class AnimeGANv3(object) :
     def __init__(self, sess, args):
@@ -368,6 +371,7 @@ class AnimeGANv3(object) :
                                                             feed_dict=train_feed_dict)
                     # self.writer.add_summary(summary_str, epoch)
                     step_time = time.time() - start_time
+                    print_memory(f"Memory {idx:5d}")
                     info = f'Epoch: {epoch:3d}, Step: {idx:5d} /{steps:5d}, time: {step_time:.3f}s, ETA: {step_time*(steps-idx+1):.2f}s, ' + \
                            f'D_loss:{D_loss:.3f} ~ G_loss: {G_loss:.3f} || ' + \
                            f'G_support_loss: {G_support_loss:.6f}, g_s_loss: {g_adv_loss:.6f}, con_loss: {con_loss:.6f}, rs_loss: {rs_loss:.6f}, sty_loss: {sty_loss:.6f}, s22: {s22:.6f}, s33: {s33:.6f}, s44: {s44:.6f}, color_loss: {color_loss:.6f}, tv_loss: {tv_loss:.6f} ~ D_support_loss: {D_support_loss:.6f} || ' + \
@@ -418,7 +422,8 @@ class AnimeGANv3(object) :
             image = image / 127.5 - 1.0
             return image
         num_job = np.shape(batch_image)[0]
-        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
+        # batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
+
         return np.array(batch_out)
 
     def get_simple_superpixel(self, batch_image, seg_num=200):
@@ -453,7 +458,7 @@ class AnimeGANv3(object) :
         if self.onnx_weights_file != '' :
             print(" [*] Reading onnx weights...")
             counter = self.replace_weights_generator(self.onnx_weights_file)
-            return True, counter
+            return True, 0
         else :
             print(" [*] Reading checkpoints...")
             checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
@@ -468,9 +473,6 @@ class AnimeGANv3(object) :
                     self.saver_load.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
                 counter = int(ckpt_name.split('-')[-1])
                 print(" [*] Success to read {}".format(os.path.join(checkpoint_dir, ckpt_name)))
-
-                if self.onnx_weights_file != '' :
-                    self.replace_weights_generator(self.onnx_weights_file)
 
                 return True, counter
             else:

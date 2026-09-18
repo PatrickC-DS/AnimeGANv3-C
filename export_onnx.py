@@ -81,13 +81,41 @@ def convert_checkpoint_to_onnx(checkpoint_dir):
         #print(f"python -m tf2onnx.convert --input {output_pb_path} --inputs input_photo:0 --outputs generator/final_output:0 --opset 11 --output {output_onnx_path}")
 
 
+import re
+
+def get_epoch(dirname) :
+    # 1. Lecture du fichier checkpoint pour récupérer N
+    filename = f"{dirname}/checkpoint"
+    with open(filename, "r", encoding="utf-8") as f:
+        first_line = f.readline()
+
+    # Extraction de la valeur numérique N via une expression régulière
+    match = re.search(r'model-([0-9]+)"', first_line)
+    if not match:
+        raise ValueError("Format du fichier checkpoint non reconnu.")
+
+    N = int(match.group(1))
+    return N
+
+def set_epoch(dirname, N) :
+    filename = f"{dirname}/checkpoint"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f'model_checkpoint_path: "AnimeGANv3.model-{N}"\n')
+
 if len(sys.argv) > 1:
     model_name = sys.argv[1]
+    if len(sys.argv) > 2:
+        first = int(sys.argv[2])
+    else :
+        first = 1
+    dirname = f"./checkpoint/AnimeGANv3_{model_name}"
+    N = get_epoch(dirname)
+    for i in range(first, N + 1):
+        set_epoch(dirname, i)
+        convert_checkpoint_to_onnx(dirname)
 
-     # Modifiez ces chemins selon votre dossier
-    convert_checkpoint_to_onnx(f"./checkpoint/AnimeGANv3_{model_name}")
 else :
-    print("Nom du model name attendu (ex Hayao, Meyer)")
+    print("Nom du model name attendu (ex Hayao, Meyer [1])")
 
 """
 # Pour créer le fichier .onnx, sous (.venv) PS C:\DataScientest\Python\BD\AnimeGANv3>
