@@ -422,8 +422,7 @@ class AnimeGANv3(object) :
             image = image / 127.5 - 1.0
             return image
         num_job = np.shape(batch_image)[0]
-        # batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
-
+        batch_out = Parallel(n_jobs=num_job)(delayed(get_superpixel) (image) for image in batch_image)
         return np.array(batch_out)
 
     def get_simple_superpixel(self, batch_image, seg_num=200):
