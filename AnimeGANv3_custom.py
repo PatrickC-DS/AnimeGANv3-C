@@ -22,7 +22,9 @@ import os
 import json
 
 WB = True # True # White enad Black Style
+import psutil
 
+process = psutil.Process(os.getpid())
 def print_memory(prefix=""):
     ram = process.memory_info().rss / 1024**3
     print(f"{prefix} RAM = {ram:.2f} GB")
