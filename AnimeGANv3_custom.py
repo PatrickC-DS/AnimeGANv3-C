@@ -105,9 +105,7 @@ class AnimeGANv3(object) :
         api.authenticate()
         
         FOLDER_PATH = f"/kaggle/working/AnimeGANv3-C/checkpoint/AnimeGANv3_{style}"
-        
-        epoch = 12
-        
+             
         # Génération des métadonnées requises par Kaggle
         DATASET_SLUG = f"animeganv3-{style}-checkpoint"  # Nom du dataset sur Kaggle (minuscules et tirets)
         metadata = {
@@ -155,6 +153,12 @@ class AnimeGANv3(object) :
                 weight = np.transpose(weight, (2, 3, 1, 0))
             onnx_weights[initializer.name] = weight
 
+        """
+        print("----------- ONNX --------------")
+        for onnx_name, weight_data in onnx_weights.items():
+            print(onnx_name)
+        print("----------- ONNX --------------") 
+        """
         return onnx_weights
 
     def replace_weights_generator(self, filename_onnx) :
@@ -171,24 +175,63 @@ class AnimeGANv3(object) :
         ]
 
         replaced_count = 0
+        unassigned_vars = []
+            
+        # PASS 1 : Match par nom exact ou permutation de préfixe (generator_1 <-> generator)
         for var in gen_vars:
-            var_name_clean = var.name.split(":")[0]
+            var_name = var.name.split(':')[0]
 
-            # Chercher la correspondance dans les poids ONNX
+            # Générer les clés candidates dans l'ONNX
+            candidates = [
+                var_name,
+                var_name.replace("support", "main"),
+                var_name.replace("generator/main/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
+                var_name.replace("generator/main/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
+                var_name.replace("generator/main/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator/main/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator/support/External_attention/kernel", "External_attention/conv1d/ExpandDims_1"),
+                var_name.replace("generator/support/External_attention/Conv_1/weights", "External_attention/conv1d_1/ExpandDims_1"),
+                var_name.replace("generator/support/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator/support/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator_1/main/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator_1/main/External_attention/Variable_1", "mul4/x"),                
+                var_name.replace("generator_1/support/External_attention/Variable", "External_attention/add/x"),
+                var_name.replace("generator_1/support/External_attention/Variable_1", "mul4/x"),                
+            ]
+            
+            found = False
             for onnx_name, weight_data in onnx_weights.items():
-                if onnx_name in var_name_clean or var_name_clean in onnx_name:
-                    try:
-                        # Écriture directe dans la variable en session
-                        self.sess.run(var.assign(weight_data))
-                        replaced_count += 1
-                        break
-                    except Exception as e:
-                        print(f"Erreur pour {var.name} : {e}")
+                for key in candidates:
+                    # print("["+key+"]", "==", "["+onnx_name+"]", "?", (onnx_name in key) or (key in onnx_name))
+                    if (onnx_name in key) or (key in onnx_name) :                      
+                        try:
+                            if var.shape != weight_data.shape:
+                                weight_data = weight_data.reshape(var.shape)                            
+                            self.sess.run(var.assign(weight_data))
+                            print(f"[OK] Chargé : {var_name} <-- {key}")
+                            replaced_count += 1
+                            found = True                           
+                            break
+                        except Exception:
+                            print(f"[KO] Non chargé : {var_name} {var.shape} <-- {key} {weight_data.shape}")
+                            continue
+            
+            if not found:
+                unassigned_vars.append(var)
+
+        print(f"\n---> Variables restant non assignées après PASS 1 : {len(unassigned_vars)}")
+        
+        # PASS 2 : Remplissage de secours par Shape-Matching pour Support & Attention
+        # (Prend les poids ONNX non encore consommés ayant la même forme géométrique)
+        for var in unassigned_vars:
+            var_shape = tuple(var.get_shape().as_list())
+            print(f"[ATTENTION MANQUANTE] {var.name} (Shape: {var_shape}) nécessite une vérification manuelle.")
 
         print(
             f"Succès : {replaced_count} variables du Générateur ont été remplacées par l'ONNX !"
         )        
         return replaced_count
+
 
 
     ##################################################################################
@@ -311,8 +354,11 @@ class AnimeGANv3(object) :
             print(" [!] Load failed...")
 
         # loop for epoch
+        curr_epoch = 0
+        saved_epoch = -1
         steps = int(self.dataset_num / self.batch_size)
         for epoch in range(start_epoch, self.epoch+1):
+            curr_epoch = epoch
             print("Deb epoch", epoch)
             for idx in range(steps):
                 start_time = time.time()
@@ -384,6 +430,7 @@ class AnimeGANv3(object) :
                 self.save(self.checkpoint_dir, epoch)
                 if self.is_kaggle() :
                     self.save_kaggle_checkpoint(self.dataset_name, epoch)
+                saved_epoch = epoch
 
 
             """
@@ -404,10 +451,11 @@ class AnimeGANv3(object) :
             print("End epoch", epoch)
 
         # Sauvegarde dernière epoch
-        print("Save final epoch", epoch)
-        self.save(self.checkpoint_dir, epoch)
-        if self.is_kaggle() :
-            self.save_kaggle_checkpoint(self.dataset_name, epoch)
+        if curr_epoch != saved_epoch :
+            print("Save final epoch", curr_epoch)
+            self.save(self.checkpoint_dir, curr_epoch)
+            if self.is_kaggle() :
+                self.save_kaggle_checkpoint(self.dataset_name, curr_epoch)
 
 
     @property
