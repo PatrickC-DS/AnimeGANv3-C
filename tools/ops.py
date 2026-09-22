@@ -405,42 +405,13 @@ def bw_loss(image):
         tf.reduce_mean(tf.abs(g - b))
     ) / 3.0
 
-def white_region_loss(style_gray, fake_gray, threshold=0.85):
+def bw_binary_loss(image):
+    gray = tf.image.rgb_to_grayscale(image)
 
-    # Les images sont déjà en niveaux de gris RGB
-    style = tf.image.rgb_to_grayscale(style_gray)
-    fake = tf.image.rgb_to_grayscale(fake_gray)
-
-    # [-1, 1] -> [0, 1]
-    style = (style + 1.0) / 2.0
-    fake = (fake + 1.0) / 2.0
-
-    # Zones blanches du style Meyer
-    white_mask = tf.cast(
-        style > threshold,
-        tf.float32
+    # On veut favoriser -1 ou +1
+    return tf.reduce_mean(
+        1.0 - tf.square(gray)
     )
-
-    # Gradients horizontaux
-    dx = fake[:, :, 1:, :] - fake[:, :, :-1, :]
-
-    # Gradients verticaux
-    dy = fake[:, 1:, :, :] - fake[:, :-1, :, :]
-
-    # Masques correspondants
-    mask_x = white_mask[:, :, 1:, :]
-    mask_y = white_mask[:, 1:, :, :]
-
-    loss_x = tf.reduce_sum(
-        tf.abs(dx) * mask_x
-    ) / (tf.reduce_sum(mask_x) + 1e-6)
-
-    loss_y = tf.reduce_sum(
-        tf.abs(dy) * mask_y
-    ) / (tf.reduce_sum(mask_y) + 1e-6)
-
-    return (loss_x + loss_y) / 2.0
-
 
 def Lab_color_loss(photo, fake, weight=1.0):
     photo = (photo + 1.0) / 2.0
