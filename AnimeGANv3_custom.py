@@ -272,7 +272,7 @@ class AnimeGANv3(object) :
                         + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
 
         if WB :
-            self.sty_loss = 0.8 * (self.s22  + self.s33) #  +  self.s44)
+            self.sty_loss = 0.8 * self.s44 # (self.s22  + self.s33) #  +  self.s44)
             self.color_loss = (bw_loss(self.generated) + 0.2 * bw_binary_loss(self.generated))
 
         else :
