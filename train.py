@@ -45,6 +45,7 @@ def parse_args():
                         help='Directory name to save the samples on training')
 
     parser.add_argument('--onnx_weights_file', type=str, default='', help='The onnx filename to get weights generator')
+    parser.add_argument('--experience', type=str, default='', help='Expérience ||A|B|C|D')
 
     return check_args(parser.parse_args())
 

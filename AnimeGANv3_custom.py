@@ -53,6 +53,7 @@ class AnimeGANv3(object) :
 
         """ Generator """
         self.onnx_weights_file = args.onnx_weights_file
+        self.experience = args.experience
 
         """ Discriminator """
         self.sn = args.sn
@@ -83,6 +84,8 @@ class AnimeGANv3(object) :
         print("# epoch : ", self.epoch)
         print("# init_G_epoch : ", self.init_G_epoch)
         print("# init onnx Generator : ", self.onnx_weights_file)
+        if self.experience != '' :
+            print("# experience : ", self.experience)
         print("# training image size [H, W] : ", self.img_size)
         print("# init_G_lr,g_lr,d_lr : ", self.init_G_lr,self.g_lr,self.d_lr)
         print()
@@ -91,6 +94,8 @@ class AnimeGANv3(object) :
         return 'KAGGLE_KERNEL_RUN_TYPE' in os.environ
 
     def save_kaggle_checkpoint(self, style, epoch) :
+        style = style + self.experience
+
         from kaggle_secrets import UserSecretsClient
         user_secrets = UserSecretsClient()
         checkpoint_secret = user_secrets.get_secret("checkpoint token")
@@ -278,8 +283,41 @@ class AnimeGANv3(object) :
         else :
             self.sty_loss = self.s22  + self.s33 +  self.s44
             self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
-    
+
         self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+
+        """
+        Expérience	s44	con	rs	TV
+        Actuelle	0.8	0.5	0.2	0.001
+        A	        0.4	0.5	0.2	0.001
+        B	        0.2	0.5	0.2	0.001
+        C	        0.4	0.25	0.1	0.001
+        D	        0.4	0.25	0.1	0.01
+        """
+        if self.experience == 'A' :
+            self.sty_loss = 0.4 * self.s44
+            self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
+            self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
+                            + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
+            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+        elif self.experience == 'B' :
+            self.sty_loss = 0.2 * self.s44
+            self.con_loss = con_loss(self.real_photo, self.generated, 0.5)
+            self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
+                            + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
+            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+        elif self.experience == 'C' :
+            self.sty_loss = 0.4 * self.s44
+            self.con_loss = con_loss(self.real_photo, self.generated, 0.25)
+            self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
+                            + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
+            self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+        elif self.experience == 'D' :
+            self.sty_loss = 0.4 * self.s44
+            self.con_loss = con_loss(self.real_photo, self.generated, 0.25)
+            self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
+                            + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
+            self.tv_loss  = 0.01 * total_variation_loss(self.generated)
 
         self.g_adv_loss = generator_loss(fake_gray_logit)
         self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss + self.rs_loss +  self.color_loss + self.tv_loss
@@ -498,6 +536,7 @@ class AnimeGANv3(object) :
 
     def save(self, checkpoint_dir, step):
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+        checkpoint_dir += self.experience       
 
         if not os.path.exists(checkpoint_dir):
  
