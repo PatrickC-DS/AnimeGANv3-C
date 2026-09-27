@@ -318,6 +318,13 @@ class AnimeGANv3(object) :
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
             self.tv_loss  = 0.01 * total_variation_loss(self.generated)
+        elif self.experience == 'E' :
+            self.color_loss = (bw_loss(self.generated) + 0.5 * bw_binary_loss(self.generated))
+            self.sty_loss = 0.1 * self.s44
+            self.con_loss = con_loss(self.real_photo, self.generated, 0.25)
+            self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
+                            + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
+            self.tv_loss  = 0.01 * total_variation_loss(self.generated)
 
         self.g_adv_loss = generator_loss(fake_gray_logit)
         self.G_support_loss = self.g_adv_loss + self.con_loss + self.sty_loss + self.rs_loss +  self.color_loss + self.tv_loss
