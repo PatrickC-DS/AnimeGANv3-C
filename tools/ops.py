@@ -435,6 +435,23 @@ def total_variation_loss(inputs):
     size_dw = tf.size(dw, out_type=tf.float32)
     return tf.nn.l2_loss(dh) / size_dh + tf.nn.l2_loss(dw) / size_dw
 
+def local_variance_loss(image):
+    gray = tf.image.rgb_to_grayscale(image)
+    mean = tf.nn.avg_pool(
+        gray,
+        ksize=[1, 5, 5, 1],
+        strides=[1, 1, 1, 1],
+        padding='SAME'
+    )
+    mean_sq = tf.nn.avg_pool(
+        tf.square(gray),
+        ksize=[1, 5, 5, 1],
+        strides=[1, 1, 1, 1],
+        padding='SAME'
+    )
+    variance = tf.maximum(mean_sq - tf.square(mean), 0.0)
+    return tf.reduce_mean(variance)
+
 def rgb2yuv(rgb):
     """
     Convert RGB image into YUV https://en.wikipedia.org/wiki/YUV
