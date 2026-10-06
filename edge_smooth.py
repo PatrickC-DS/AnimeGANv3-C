@@ -48,10 +48,12 @@ def main():
     kernel_size, kernel, gauss = guass_init()
 
     dataset_name = args.dataset
-    check_folder(os.path.dirname(os.path.dirname(__file__)) + '/dataset/{}/{}'.format(dataset_name, 'smooth'))
-    file_list = glob(os.path.dirname(os.path.dirname(__file__)) + '/dataset/{}/{}/*.*'.format(dataset_name, 'style'))
-    save_dir = os.path.dirname(os.path.dirname(__file__)) + '/dataset/{}/smooth'.format(dataset_name)
+    path = os.path.dirname(__file__)
+    check_folder(path + '/dataset/{}/{}'.format(dataset_name, 'smooth'))
+    file_list = glob(path + '/dataset/{}/{}/*.*'.format(dataset_name, 'style'))
+    save_dir = path + '/dataset/{}/smooth'.format(dataset_name)
 
+    print(save_dir)
     for f in tqdm(file_list):
         file_name = os.path.basename(f)
 
