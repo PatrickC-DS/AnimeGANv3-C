@@ -271,12 +271,9 @@ class AnimeGANv3(object) :
         """support"""
         # self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 1., 9.])
         self.s22, self.s33, self.s44  = style_loss_decentralization_3(self.anime_sty_gray, self.fake_sty_gray,  [0.1, 5., 25.])
-       
-        if WB :
-            self.color_loss = (bw_loss(self.generated) + 0.2 * bw_binary_loss(self.generated))
-        else :
-            self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
 
+        if WB == False :
+            self.color_loss =  Lab_color_loss(self.real_photo, self.generated, 10. )
 
         """
         Expérience	s44	    con	    rs	    TV
@@ -293,24 +290,28 @@ class AnimeGANv3(object) :
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.color_loss = bw_loss(self.generated)
         elif self.experience == 'B' :
             self.sty_loss = 0.2 * self.s44
             self.con_loss = con_loss(self.real_photo, self.generated, 0.5)
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.color_loss = bw_loss(self.generated)
         elif self.experience == 'C' :
             self.sty_loss = 0.4 * self.s44
             self.con_loss = con_loss(self.real_photo, self.generated, 0.25)
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.color_loss = bw_loss(self.generated)
         elif self.experience == 'D' :
             self.sty_loss = 0.4 * self.s44
             self.con_loss = con_loss(self.real_photo, self.generated, 0.25)
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.1 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.1
             self.tv_loss  = 0.01 * total_variation_loss(self.generated)
+            self.color_loss = bw_loss(self.generated)
         elif self.experience == 'E' :
             self.sty_loss = 0.2 * self.s44
             self.con_loss = con_loss(self.real_photo, self.generated, 0.5)
@@ -318,12 +319,14 @@ class AnimeGANv3(object) :
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
             self.epure_loss = 0.1 * local_variance_loss(self.generated)
+            self.color_loss = (bw_loss(self.generated) + 0.2 * bw_binary_loss(self.generated))
         elif self.experience == 'F' :
             self.sty_loss = self.s22  + self.s33 +  self.s44
             self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.color_loss = (bw_loss(self.generated) + 0.5 * bw_binary_loss(self.generated))
         elif self.experience == 'G' : # Charest
             self.sty_loss = self.s22  + self.s33 +  self.s44
             self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
@@ -333,10 +336,11 @@ class AnimeGANv3(object) :
             self.color_loss = (bw_loss(self.generated) + 0.5 * bw_binary_loss(self.generated))
         else :
             self.sty_loss = self.s22  + self.s33 +  self.s44
-            self.con_loss =  con_loss(self.real_photo, self.generated, 0.5)
+            self.con_loss = con_loss(self.real_photo, self.generated, 0.5)
             self.rs_loss =  region_smoothing_loss(self.fake_superpixel, self.generated, 0.2 ) \
                             + VGG_LOSS(self.photo_superpixel, self.generated) * 0.2
             self.tv_loss  = 0.001 * total_variation_loss(self.generated)
+            self.color_loss = bw_loss(self.generated)
 
     
 
